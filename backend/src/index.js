@@ -14,6 +14,7 @@ import projectRoutes from './routes/projects.js';
 import furnitureRoutes from './routes/furniture.js';
 import aiRoutes from './routes/ai.js';
 import userRoutes from './routes/users.js';
+import calculatorRoutes from './routes/calculator.js';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -73,6 +74,7 @@ app.use('/api/projects', authMiddleware, projectRoutes);
 app.use('/api/furniture', authMiddleware, furnitureRoutes);
 app.use('/api/ai', authMiddleware, aiRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
+app.use('/api/calculator', calculatorRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

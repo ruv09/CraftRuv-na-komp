@@ -64,8 +64,8 @@ const Home: React.FC = () => {
     },
     {
       icon: Calculator,
-      title: "ИИ-помощник",
-      description: "Получайте рекомендации по оптимизации конструкции"
+      title: "Калькулятор стоимости",
+      description: "Быстрый расчет стоимости корпусной мебели по параметрам"
     },
     {
       icon: Eye,
@@ -209,6 +209,12 @@ const Home: React.FC = () => {
               <Link to="/register">
                 Создать аккаунт
                 <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/calculator">
+                <Calculator className="mr-2 h-4 w-4" />
+                Калькулятор стоимости
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">

@@ -19,6 +19,8 @@ import ProjectList from './pages/ProjectList';
 import Explore from './pages/Explore';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import Calculator from './pages/Calculator';
+import Demo from './pages/Demo';
 
 // Styles
 import './App.css';
@@ -59,6 +61,8 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/explore" element={<Explore />} />
+                <Route path="/calculator" element={<Calculator />} />
+                <Route path="/demo" element={<Demo />} />
 
                 {/* Protected routes */}
                 <Route path="/dashboard" element={
