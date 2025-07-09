@@ -1,16 +1,32 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
+import OpenAI from 'openai';
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = express.Router();
+
+// Mock AI responses
+const mockAIResponses = {
+  design_suggestions: [
+    'Для кухни в современном стиле рекомендую использовать ламинированное ДСП белого цвета',
+    'Добавьте подсветку под навесными шкафами для лучшего освещения рабочей зоны',
+    'Рассмотрите возможность установки выдвижных ящиков для удобного хранения'
+  ],
+  material_recommendations: [
+    'Для детской мебели лучше использовать МДФ - материал безопасный и прочный',
+    'Дуб подойдет для классического интерьера, но потребует больше ухода',
+    'Ламинированное ДСП - оптимальный выбор по соотношению цена-качество'
+  ]
+};
 
 // @route   POST /api/ai/suggest
 // @desc    Get AI suggestions for furniture design
 // @access  Private
 router.post('/suggest', [
-  body('roomType').isIn(['living', 'bedroom', 'kitchen', 'bathroom', 'office', 'dining']).withMessage('Invalid room type'),
-  body('style').isIn(['modern', 'classic', 'minimalist', 'rustic', 'industrial', 'scandinavian']).withMessage('Invalid style'),
-  body('budget').isFloat({ min: 0 }).withMessage('Budget must be positive'),
-  body('dimensions').isObject().withMessage('Dimensions must be an object'),
+  body('roomType').optional().isIn(['living', 'bedroom', 'kitchen', 'bathroom', 'office', 'dining']).withMessage('Invalid room type'),
+  body('style').optional().isIn(['modern', 'classic', 'minimalist', 'rustic', 'industrial', 'scandinavian']).withMessage('Invalid style'),
+  body('budget').optional().isFloat({ min: 0 }).withMessage('Budget must be positive'),
+  body('dimensions').optional().isObject().withMessage('Dimensions must be an object'),
   body('requirements').optional().isArray().withMessage('Requirements must be an array')
 ], async (req, res) => {
   try {
@@ -24,21 +40,100 @@ router.post('/suggest', [
 
     const { roomType, style, budget, dimensions, requirements = [] } = req.body;
 
-    // AI suggestion logic (simulated)
-    const suggestions = generateAISuggestions(roomType, style, budget, dimensions, requirements);
+    // 1. Сначала просим GPT-4: если данных мало — вернуть вопросы, если достаточно — параметры и советы
+    const infoPrompt = `Ты — эксперт по проектированию корпусной мебели. Если данных недостаточно для проектирования (нет типа, стиля, бюджета, размеров), верни массив уточняющих вопросов в формате { "questions": [ ... ] }. Если данных достаточно, верни объект:
+{
+  "model": { ... параметры для 3D-модели ... },
+  "advice": [ ... советы по сборке ... ],
+  "dalle_prompt": "...описание для генерации изображения..."
+}
+
+Входные данные:
+Тип комнаты: ${roomType || ''}
+Стиль: ${style || ''}
+Бюджет: ${budget || ''}
+Размеры: ${dimensions ? JSON.stringify(dimensions) : ''}
+Требования: ${requirements.length ? requirements.join(', ') : ''}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: 'Ты — эксперт по проектированию корпусной мебели. Ты помогаешь создавать параметры для 3D-модели, советы по сборке и промпт для генерации изображения.' },
+        { role: 'user', content: infoPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 900
+    });
+
+    // 2. Пробуем распарсить ответ
+    let modelData = null;
+    let advice = [];
+    let dallePrompt = null;
+    let questions = null;
+    let raw = completion.choices[0].message.content;
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.questions) {
+          questions = parsed.questions;
+        } else {
+          modelData = parsed.model;
+          advice = parsed.advice;
+          dallePrompt = parsed.dalle_prompt;
+        }
+      }
+    } catch (e) {
+      // fallback: просто текст
+      return res.json({
+        success: true,
+        data: {
+          raw
+        },
+        warning: 'Не удалось распарсить JSON, проверьте формат ответа.'
+      });
+    }
+
+    // 3. Если нужны уточняющие вопросы — возвращаем их
+    if (questions) {
+      return res.json({
+        success: true,
+        data: {
+          questions
+        },
+        needMoreInfo: true
+      });
+    }
+
+    // 4. Генерируем изображение через DALL-E, если есть промпт
+    let imageUrl = null;
+    if (dallePrompt) {
+      try {
+        const image = await openai.images.generate({
+          prompt: dallePrompt,
+          n: 1,
+          size: '512x512'
+        });
+        imageUrl = image.data[0].url;
+      } catch (e) {
+        // Если не удалось — просто продолжаем
+        imageUrl = null;
+      }
+    }
 
     res.json({
       success: true,
       data: {
-        suggestions,
-        reasoning: `Based on your ${roomType} room with ${style} style and budget of ${budget}₽`
+        model: modelData,
+        advice,
+        imageUrl
       }
     });
-
   } catch (error) {
-    console.error('AI suggest error:', error);
-    res.status(500).json({ 
-      error: 'Server error while generating suggestions' 
+    res.status(500).json({
+      success: false,
+      message: 'Error generating AI suggestions',
+      error: error.message
     });
   }
 });
@@ -115,86 +210,28 @@ router.post('/validate', [
   }
 });
 
-// Helper function to generate AI suggestions
-function generateAISuggestions(roomType, style, budget, dimensions, requirements) {
-  const suggestions = {
-    furniture: [],
-    materials: [],
-    layout: '',
-    tips: []
-  };
-
-  // Furniture suggestions based on room type
-  const roomFurniture = {
-    living: ['sofa', 'coffee_table', 'tv_stand', 'bookshelf'],
-    bedroom: ['bed', 'wardrobe', 'nightstand', 'dresser'],
-    kitchen: ['kitchen_cabinet', 'dining_table', 'pantry'],
-    bathroom: ['vanity', 'storage_cabinet', 'shelf'],
-    office: ['desk', 'chair', 'bookshelf', 'filing_cabinet'],
-    dining: ['dining_table', 'chairs', 'buffet', 'china_cabinet']
-  };
-
-  suggestions.furniture = roomFurniture[roomType] || [];
-
-  // Material suggestions based on style and budget
-  const styleMaterials = {
-    modern: ['plywood', 'mdf', 'metal', 'glass'],
-    classic: ['solid_wood', 'veneer', 'brass'],
-    minimalist: ['plywood', 'mdf', 'metal'],
-    rustic: ['solid_wood', 'reclaimed_wood'],
-    industrial: ['metal', 'wood', 'concrete'],
-    scandinavian: ['light_wood', 'plywood', 'white_paint']
-  };
-
-  suggestions.materials = styleMaterials[style] || [];
-
-  // Layout suggestions
-  suggestions.layout = generateLayoutSuggestion(roomType, dimensions);
-
-  // Tips based on requirements
-  suggestions.tips = generateTips(roomType, style, budget, requirements);
-
-  return suggestions;
-}
-
-// Helper function to generate layout suggestions
-function generateLayoutSuggestion(roomType, dimensions) {
-  const layouts = {
-    living: 'Place sofa against the longest wall, coffee table in center, TV stand opposite sofa',
-    bedroom: 'Bed against the wall, wardrobe on opposite side, nightstands on both sides',
-    kitchen: 'Work triangle: sink, stove, refrigerator in triangular arrangement',
-    bathroom: 'Vanity near door, storage cabinet in corner, maximize floor space',
-    office: 'Desk near window for natural light, chair with good ergonomics',
-    dining: 'Dining table in center, chairs around, buffet against wall'
-  };
-
-  return layouts[roomType] || 'Optimize for traffic flow and functionality';
-}
-
-// Helper function to generate tips
-function generateTips(roomType, style, budget, requirements) {
-  const tips = [];
-
-  // Budget-based tips
-  if (budget < 50000) {
-    tips.push('Consider using MDF or plywood instead of solid wood to reduce costs');
-    tips.push('Opt for simple joinery methods like pocket holes');
+// Get material recommendations
+router.post('/materials', (req, res) => {
+  try {
+    const { furnitureType, budget, style } = req.body;
+    
+    const recommendations = mockAIResponses.material_recommendations.slice(0, 2);
+    
+    res.json({
+      success: true,
+      data: {
+        recommendations,
+        reasoning: 'Рекомендации основаны на характеристиках материалов и вашем бюджете'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error generating material recommendations',
+      error: error.message
+    });
   }
-
-  // Style-based tips
-  if (style === 'modern') {
-    tips.push('Use clean lines and minimal ornamentation');
-    tips.push('Consider hidden storage solutions');
-  }
-
-  // Room-specific tips
-  if (roomType === 'kitchen') {
-    tips.push('Ensure adequate counter space for food preparation');
-    tips.push('Plan for proper ventilation and lighting');
-  }
-
-  return tips;
-}
+});
 
 // Helper function to optimize project
 function optimizeProject(project, optimizationType) {
