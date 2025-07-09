@@ -21,6 +21,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Calculator from './pages/Calculator';
 import Demo from './pages/Demo';
+import AIAssistant from './pages/AIAssistant';
 
 // Styles
 import './App.css';
@@ -63,6 +64,7 @@ function App() {
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/calculator" element={<Calculator />} />
                 <Route path="/demo" element={<Demo />} />
+                <Route path="/ai-assistant" element={<AIAssistant />} />
 
                 {/* Protected routes */}
                 <Route path="/dashboard" element={
