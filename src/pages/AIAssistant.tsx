@@ -71,7 +71,6 @@ export default function AIAssistant() {
         const dim = key.split('.')[1];
         newParams.dimensions[dim] = ans;
       } else {
-        // @ts-expect-error
         newParams[key] = ans;
       }
     });

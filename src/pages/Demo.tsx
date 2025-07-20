@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Calculator, Eye3d, Package, DollarSign, Zap, CheckCircle } from 'lucide-react';
+import { Calculator, Eye, Package, DollarSign, Zap, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Demo: React.FC = () => {
@@ -14,7 +14,7 @@ const Demo: React.FC = () => {
       color: "text-blue-600"
     },
     {
-      icon: Eye3d,
+      icon: Eye,
       title: "3D Визуализация",
       description: "Интерактивная 3D модель мебели в реальном времени",
       color: "text-green-600"

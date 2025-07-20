@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Calculator as CalculatorIcon, Ruler, Package, DollarSign, Settings, Loader2, Eye3d } from 'lucide-react';
+import { Calculator as CalculatorIcon, Ruler, Package, DollarSign, Settings, Loader2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Furniture3DViewer from '../components/Furniture3DViewer';
 
@@ -175,7 +175,7 @@ export default function Calculator() {
               Калькулятор
             </TabsTrigger>
             <TabsTrigger value="3d-viewer" className="flex items-center gap-2" disabled={!canShow3D}>
-              <Eye3d className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
               3D Модель
             </TabsTrigger>
           </TabsList>
@@ -335,7 +335,7 @@ export default function Calculator() {
                       onClick={() => setActiveTab('3d-viewer')}
                       className="w-full"
                     >
-                      <Eye3d className="h-4 w-4 mr-2" />
+                      <Eye className="h-4 w-4 mr-2" />
                       Посмотреть 3D модель
                     </Button>
                   )}
@@ -443,7 +443,7 @@ export default function Calculator() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Eye3d className="h-5 w-5" />
+                  <Eye className="h-5 w-5" />
                   3D Модель мебели
                 </CardTitle>
                 <CardDescription>
@@ -461,7 +461,7 @@ export default function Calculator() {
                   />
                 ) : (
                   <div className="text-center py-8 text-gray-500">
-                    <Eye3d className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <Eye className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>Заполните все параметры для просмотра 3D модели</p>
                   </div>
                 )}
