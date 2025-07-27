@@ -40,72 +40,119 @@ router.post('/suggest', [
 
     const { roomType, style, budget, dimensions, requirements = [] } = req.body;
 
-    // 1. Сначала просим GPT-4: если данных мало — вернуть вопросы, если достаточно — параметры и советы
-    const infoPrompt = `Ты — эксперт по проектированию корпусной мебели. Если данных недостаточно для проектирования (нет типа, стиля, бюджета, размеров), верни массив уточняющих вопросов в формате { "questions": [ ... ] }. Если данных достаточно, верни объект:
-{
-  "model": { ... параметры для 3D-модели ... },
-  "advice": [ ... советы по сборке ... ],
-  "dalle_prompt": "...описание для генерации изображения..."
-}
+    // 1. Проверяем достаточность данных
+    const hasRequiredData = roomType && style && budget && dimensions && 
+                           dimensions.width && dimensions.height && dimensions.depth;
 
-Входные данные:
-Тип комнаты: ${roomType || ''}
-Стиль: ${style || ''}
-Бюджет: ${budget || ''}
-Размеры: ${dimensions ? JSON.stringify(dimensions) : ''}
-Требования: ${requirements.length ? requirements.join(', ') : ''}`;
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'Ты — эксперт по проектированию корпусной мебели. Ты помогаешь создавать параметры для 3D-модели, советы по сборке и промпт для генерации изображения.' },
-        { role: 'user', content: infoPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 900
-    });
-
-    // 2. Пробуем распарсить ответ
-    let modelData = null;
-    let advice = [];
-    let dallePrompt = null;
-    let questions = null;
-    let raw = completion.choices[0].message.content;
-    try {
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (match) {
-        const parsed = JSON.parse(match[0]);
-        if (parsed.questions) {
-          questions = parsed.questions;
-        } else {
-          modelData = parsed.model;
-          advice = parsed.advice;
-          dallePrompt = parsed.dalle_prompt;
-        }
-      }
-    } catch (e) {
-      // fallback: просто текст
+    if (!hasRequiredData) {
+      const questions = [];
+      if (!roomType) questions.push('Укажите тип комнаты (living, bedroom, kitchen, bathroom, office, dining)');
+      if (!style) questions.push('Выберите стиль (modern, classic, minimalist, rustic, industrial, scandinavian)');
+      if (!budget) questions.push('Укажите бюджет в рублях');
+      if (!dimensions?.width) questions.push('Укажите ширину мебели в см');
+      if (!dimensions?.height) questions.push('Укажите высоту мебели в см');
+      if (!dimensions?.depth) questions.push('Укажите глубину мебели в см');
+      
       return res.json({
         success: true,
-        data: {
-          raw
-        },
-        warning: 'Не удалось распарсить JSON, проверьте формат ответа.'
-      });
-    }
-
-    // 3. Если нужны уточняющие вопросы — возвращаем их
-    if (questions) {
-      return res.json({
-        success: true,
-        data: {
-          questions
-        },
+        data: { questions },
         needMoreInfo: true
       });
     }
 
-    // 4. Генерируем изображение через DALL-E, если есть промпт
+    // 2. Генерируем параметры модели с помощью GPT-4
+    const aiPrompt = `Ты — эксперт по проектированию корпусной мебели. На основе входных данных создай оптимальные параметры для 3D-модели мебели.
+
+Входные данные:
+- Тип комнаты: ${roomType}
+- Стиль: ${style}
+- Бюджет: ${budget}₽
+- Размеры: ${JSON.stringify(dimensions)}см
+- Требования: ${requirements.join(', ')}
+
+Верни JSON объект в следующем формате:
+{
+  "model": {
+    "furnitureType": "cabinet|wardrobe|bookshelf|kitchen|table",
+    "material": "oak|pine|birch|laminate_white|laminate_oak|veneer_oak|mdf_white|mdf_colored",
+    "dimensions": {
+      "width": число,
+      "height": число,
+      "depth": число
+    },
+    "features": {
+      "shelves": число,
+      "doors": число,
+      "drawers": число,
+      "legs": число (для столов),
+      "cabinets": число (для кухни)
+    },
+    "hardware": {
+      "hinges": "hidden|visible|soft_close",
+      "handles": "simple|modern|recessed",
+      "slides": "ball|roller|tandem"
+    }
+  },
+  "advice": [
+    "Совет 1 по сборке и дизайну",
+    "Совет 2 по материалам",
+    "Совет 3 по функциональности"
+  ],
+  "dalle_prompt": "Подробное описание мебели для генерации изображения на английском языке"
+}
+
+Учитывай:
+- Бюджет при выборе материалов
+- Стиль при выборе фурнитуры
+- Размеры комнаты для оптимальных габаритов
+- Функциональность для количества полок/ящиков`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { 
+          role: 'system', 
+          content: 'Ты — эксперт по проектированию корпусной мебели. Ты создаешь точные параметры для 3D-модели и даешь профессиональные советы. Всегда возвращай валидный JSON.' 
+        },
+        { role: 'user', content: aiPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    // 3. Парсим ответ AI
+    let modelData = null;
+    let advice = [];
+    let dallePrompt = null;
+    let raw = completion.choices[0].message.content;
+    
+    try {
+      // Ищем JSON в ответе
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        if (parsed.model) {
+          modelData = parsed.model;
+          advice = parsed.advice || [];
+          dallePrompt = parsed.dalle_prompt;
+          
+          // Валидация и нормализация параметров
+          modelData = validateAndNormalizeModel(modelData, budget);
+        }
+      }
+    } catch (e) {
+      console.error('JSON parsing error:', e);
+      // Fallback: создаем базовые параметры
+      modelData = createFallbackModel(roomType, style, dimensions, budget);
+      advice = [
+        'Использованы базовые параметры из-за ошибки AI',
+        'Рекомендуется проверить размеры и материалы',
+        'Обратитесь к специалисту для уточнения деталей'
+      ];
+    }
+
+    // 4. Генерируем изображение через DALL-E
     let imageUrl = null;
     if (dallePrompt) {
       try {
@@ -116,7 +163,7 @@ router.post('/suggest', [
         });
         imageUrl = image.data[0].url;
       } catch (e) {
-        // Если не удалось — просто продолжаем
+        console.error('DALL-E generation error:', e);
         imageUrl = null;
       }
     }
@@ -129,7 +176,9 @@ router.post('/suggest', [
         imageUrl
       }
     });
+
   } catch (error) {
+    console.error('AI suggest error:', error);
     res.status(500).json({
       success: false,
       message: 'Error generating AI suggestions',
@@ -341,6 +390,79 @@ function validateProject(project) {
   }
 
   return validation;
+}
+
+// Функция валидации и нормализации модели
+function validateAndNormalizeModel(model, budget) {
+  const normalized = { ...model };
+  
+  // Проверяем и корректируем размеры
+  if (normalized.dimensions) {
+    normalized.dimensions.width = Math.max(50, Math.min(400, normalized.dimensions.width));
+    normalized.dimensions.height = Math.max(100, Math.min(300, normalized.dimensions.height));
+    normalized.dimensions.depth = Math.max(30, Math.min(120, normalized.dimensions.depth));
+  }
+  
+  // Проверяем и корректируем элементы
+  if (normalized.features) {
+    normalized.features.shelves = Math.max(0, Math.min(10, normalized.features.shelves || 0));
+    normalized.features.doors = Math.max(0, Math.min(6, normalized.features.doors || 0));
+    normalized.features.drawers = Math.max(0, Math.min(8, normalized.features.drawers || 0));
+  }
+  
+  // Корректируем материал в зависимости от бюджета
+  if (budget < 10000) {
+    normalized.material = 'laminate_white';
+  } else if (budget < 30000) {
+    normalized.material = 'mdf_white';
+  } else if (budget < 50000) {
+    normalized.material = 'birch';
+  } else {
+    normalized.material = 'oak';
+  }
+  
+  return normalized;
+}
+
+// Функция создания fallback модели
+function createFallbackModel(roomType, style, dimensions, budget) {
+  const furnitureTypeMap = {
+    'living': 'cabinet',
+    'bedroom': 'wardrobe',
+    'kitchen': 'kitchen',
+    'bathroom': 'cabinet',
+    'office': 'bookshelf',
+    'dining': 'table'
+  };
+  
+  const materialMap = {
+    'modern': 'laminate_white',
+    'classic': 'oak',
+    'minimalist': 'mdf_white',
+    'rustic': 'pine',
+    'industrial': 'birch',
+    'scandinavian': 'laminate_white'
+  };
+  
+  return {
+    furnitureType: furnitureTypeMap[roomType] || 'cabinet',
+    material: materialMap[style] || 'laminate_white',
+    dimensions: {
+      width: dimensions.width || 100,
+      height: dimensions.height || 200,
+      depth: dimensions.depth || 60
+    },
+    features: {
+      shelves: 3,
+      doors: 2,
+      drawers: 1
+    },
+    hardware: {
+      hinges: 'hidden',
+      handles: 'simple',
+      slides: 'ball'
+    }
+  };
 }
 
 export default router; 

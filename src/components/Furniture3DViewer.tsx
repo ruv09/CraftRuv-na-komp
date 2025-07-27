@@ -1,16 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Box, Text, Html } from '@react-three/drei';
+import { OrbitControls, Text, Box, Cylinder } from '@react-three/drei';
 import * as THREE from 'three';
-
-interface Furniture3DViewerProps {
-  width: number;
-  height: number;
-  depth: number;
-  furnitureType: string;
-  material: string;
-  onDimensionsChange?: (dimensions: { width: number; height: number; depth: number }) => void;
-}
 
 interface FurniturePieceProps {
   width: number;
@@ -18,127 +9,195 @@ interface FurniturePieceProps {
   depth: number;
   furnitureType: string;
   material: string;
+  features?: {
+    shelves: number;
+    doors: number;
+    drawers: number;
+  };
 }
 
-const FurniturePiece: React.FC<FurniturePieceProps> = ({ width, height, depth, furnitureType, material }) => {
+const FurniturePiece: React.FC<FurniturePieceProps> = ({ 
+  width, 
+  height, 
+  depth, 
+  furnitureType, 
+  material,
+  features = { shelves: 3, doors: 2, drawers: 0 }
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
-  // Определяем цвет материала
-  const getMaterialColor = (material: string) => {
-    const colors = {
-      oak: '#8B4513',
-      pine: '#DEB887',
-      birch: '#F5DEB3',
-      laminate_white: '#FFFFFF',
-      laminate_oak: '#D2691E',
-      veneer_oak: '#CD853F',
-      mdf_white: '#F8F8FF',
-      mdf_colored: '#DDA0DD',
-    };
-    return colors[material as keyof typeof colors] || '#8B4513';
-  };
-
-  // Определяем текстуру материала
-  const getMaterialTexture = (material: string) => {
-    const textures = {
-      oak: 'wood',
-      pine: 'wood',
-      birch: 'wood',
-      laminate_white: 'smooth',
-      laminate_oak: 'wood',
-      veneer_oak: 'wood',
-      mdf_white: 'smooth',
-      mdf_colored: 'smooth',
-    };
-    return textures[material as keyof typeof textures] || 'smooth';
-  };
-
-  const color = getMaterialColor(material);
-  const texture = getMaterialTexture(material);
-
   useFrame((state) => {
-    if (meshRef.current && hovered) {
-      meshRef.current.rotation.y += 0.01;
+    if (meshRef.current) {
+      meshRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
     }
   });
+
+  // Материалы с цветами
+  const materialColors = {
+    oak: '#8B4513',
+    pine: '#DEB887',
+    birch: '#F5DEB3',
+    laminate_white: '#FFFFFF',
+    laminate_oak: '#8B4513',
+    veneer_oak: '#8B4513',
+    mdf_white: '#FFFFFF',
+    mdf_colored: '#F0F0F0'
+  };
+
+  const color = materialColors[material as keyof typeof materialColors] || '#8B4513';
+
+  // Масштабирование для 3D (делим на 100 для перевода см в метры)
+  const scale = 0.01;
+  const w = width * scale;
+  const h = height * scale;
+  const d = depth * scale;
 
   return (
     <group>
       {/* Основной корпус */}
-      <Box
+      <Box 
         ref={meshRef}
-        args={[width / 100, height / 100, depth / 100]}
+        args={[w, h, d]} 
+        position={[0, h/2, 0]}
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
         <meshStandardMaterial 
-          color={color}
-          roughness={texture === 'wood' ? 0.8 : 0.3}
-          metalness={texture === 'smooth' ? 0.1 : 0}
+          color={color} 
+          roughness={0.8}
+          metalness={0.1}
+          opacity={hovered ? 0.8 : 1}
+          transparent
         />
       </Box>
 
-      {/* Дверцы для шкафов */}
-      {(furnitureType === 'cabinet' || furnitureType === 'wardrobe') && (
-        <>
-          <Box
-            position={[width / 200, 0, depth / 200 + 0.01]}
-            args={[width / 200, height / 100, 0.02]}
-          >
-            <meshStandardMaterial color="#8B7355" />
-          </Box>
-          <Box
-            position={[-width / 200, 0, depth / 200 + 0.01]}
-            args={[width / 200, height / 100, 0.02]}
-          >
-            <meshStandardMaterial color="#8B7355" />
-          </Box>
-        </>
+      {/* Полки */}
+      {features.shelves > 0 && furnitureType !== 'table' && (
+        <group>
+          {Array.from({ length: features.shelves }, (_, i) => {
+            const shelfHeight = (h / (features.shelves + 1)) * (i + 1);
+            return (
+              <Box
+                key={`shelf-${i}`}
+                args={[w * 0.9, 0.02, d * 0.8]}
+                position={[0, shelfHeight, 0]}
+              >
+                <meshStandardMaterial color={color} roughness={0.6} />
+              </Box>
+            );
+          })}
+        </group>
       )}
 
-      {/* Полки для книжных шкафов */}
-      {furnitureType === 'bookshelf' && (
-        <>
-          {Array.from({ length: Math.floor(height / 50) }, (_, i) => (
-            <Box
-              key={i}
-              position={[0, (i + 1) * height / (Math.floor(height / 50) + 1) / 100 - height / 200, 0]}
-              args={[width / 100, 0.02, depth / 100]}
-            >
-              <meshStandardMaterial color="#8B7355" />
-            </Box>
-          ))}
-        </>
+      {/* Двери */}
+      {features.doors > 0 && furnitureType !== 'table' && (
+        <group>
+          {Array.from({ length: features.doors }, (_, i) => {
+            const doorWidth = w / features.doors;
+            const doorX = (i - (features.doors - 1) / 2) * doorWidth;
+            return (
+              <Box
+                key={`door-${i}`}
+                args={[doorWidth * 0.9, h * 0.95, 0.02]}
+                position={[doorX, h/2, d/2 + 0.01]}
+              >
+                <meshStandardMaterial color={color} roughness={0.4} />
+              </Box>
+            );
+          })}
+        </group>
       )}
 
-      {/* Ручки для шкафов */}
-      {(furnitureType === 'cabinet' || furnitureType === 'wardrobe') && (
-        <>
-          <Box
-            position={[width / 200, 0, depth / 200 + 0.03]}
-            args={[0.02, 0.1, 0.02]}
-          >
-            <meshStandardMaterial color="#FFD700" metalness={0.8} />
-          </Box>
-          <Box
-            position={[-width / 200, 0, depth / 200 + 0.03]}
-            args={[0.02, 0.1, 0.02]}
-          >
-            <meshStandardMaterial color="#FFD700" metalness={0.8} />
-          </Box>
-        </>
+      {/* Ящики */}
+      {features.drawers > 0 && furnitureType !== 'table' && (
+        <group>
+          {Array.from({ length: features.drawers }, (_, i) => {
+            const drawerHeight = 0.1;
+            const drawerSpacing = 0.05;
+            const totalDrawerHeight = features.drawers * drawerHeight + (features.drawers - 1) * drawerSpacing;
+            const startY = h - totalDrawerHeight - 0.1;
+            const drawerY = startY + i * (drawerHeight + drawerSpacing) + drawerHeight/2;
+            
+            return (
+              <group key={`drawer-${i}`}>
+                {/* Ящик */}
+                <Box
+                  args={[w * 0.8, drawerHeight, d * 0.7]}
+                  position={[0, drawerY, d/2 + 0.05]}
+                >
+                  <meshStandardMaterial color={color} roughness={0.6} />
+                </Box>
+                {/* Ручка ящика */}
+                <Cylinder
+                  args={[0.02, 0.02, 0.08]}
+                  position={[0, drawerY, d/2 + 0.1]}
+                  rotation={[Math.PI/2, 0, 0]}
+                >
+                  <meshStandardMaterial color="#333" metalness={0.8} />
+                </Cylinder>
+              </group>
+            );
+          })}
+        </group>
+      )}
+
+      {/* Ножки для стола */}
+      {furnitureType === 'table' && (
+        <group>
+          {Array.from({ length: 4 }, (_, i) => {
+            const legX = (i % 2 === 0 ? -1 : 1) * (w/2 - 0.05);
+            const legZ = (i < 2 ? -1 : 1) * (d/2 - 0.05);
+            return (
+              <Cylinder
+                key={`leg-${i}`}
+                args={[0.03, 0.03, 0.75]}
+                position={[legX, 0.375, legZ]}
+              >
+                <meshStandardMaterial color={color} roughness={0.8} />
+              </Cylinder>
+            );
+          })}
+        </group>
+      )}
+
+      {/* Штанга для одежды (для гардероба) */}
+      {furnitureType === 'wardrobe' && (
+        <Cylinder
+          args={[0.02, 0.02, w * 0.8]}
+          position={[0, h * 0.7, 0]}
+          rotation={[0, 0, Math.PI/2]}
+        >
+          <meshStandardMaterial color="#666" metalness={0.9} />
+        </Cylinder>
       )}
 
       {/* Размеры */}
-      <Html position={[0, height / 100 + 0.1, 0]} center>
-        <div className="bg-black/70 text-white px-2 py-1 rounded text-xs">
-          {width}×{height}×{depth} см
-        </div>
-      </Html>
+      <Text
+        position={[w/2 + 0.2, h/2, 0]}
+        fontSize={0.05}
+        color="black"
+        anchorX="left"
+      >
+        {width}×{height}×{depth}см
+      </Text>
     </group>
   );
 };
+
+interface Furniture3DViewerProps {
+  width: number;
+  height: number;
+  depth: number;
+  furnitureType: string;
+  material: string;
+  features?: {
+    shelves: number;
+    doors: number;
+    drawers: number;
+  };
+  onDimensionsChange?: (dimensions: { width: number; height: number; depth: number }) => void;
+}
 
 const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({ 
   width, 
@@ -146,25 +205,19 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
   depth, 
   furnitureType, 
   material,
+  features,
   onDimensionsChange 
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
-
   return (
-    <div className="w-full h-96 border rounded-lg overflow-hidden">
+    <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900 rounded-lg overflow-hidden">
       <Canvas
         camera={{ position: [3, 2, 3], fov: 50 }}
-        style={{ background: 'linear-gradient(to bottom, #87CEEB, #E0F6FF)' }}
+        style={{ height: '100%' }}
       >
         {/* Освещение */}
-        <ambientLight intensity={0.6} />
+        <ambientLight intensity={0.4} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <pointLight position={[-10, -10, -5]} intensity={0.5} />
-
-        {/* Пол */}
-        <Box position={[0, -height / 100 - 0.1, 0]} args={[10, 0.1, 10]}>
-          <meshStandardMaterial color="#8FBC8F" />
-        </Box>
 
         {/* Мебель */}
         <FurniturePiece
@@ -173,6 +226,7 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
           depth={depth}
           furnitureType={furnitureType}
           material={material}
+          features={features}
         />
 
         {/* Управление камерой */}
@@ -184,28 +238,23 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
           maxDistance={10}
         />
 
-        {/* Информационная панель */}
-        <Html position={[-2, 1.5, 0]}>
-          <div className="bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg">
-            <h3 className="font-bold text-sm mb-2">Параметры мебели</h3>
-            <div className="text-xs space-y-1">
-              <div>Ширина: {width} см</div>
-              <div>Высота: {height} см</div>
-              <div>Глубина: {depth} см</div>
-              <div>Тип: {furnitureType}</div>
-              <div>Материал: {material}</div>
-            </div>
-          </div>
-        </Html>
+        {/* Сетка для ориентации */}
+        <gridHelper args={[10, 10]} />
       </Canvas>
 
-      {/* Элементы управления */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-lg">
-        <div className="text-xs font-medium mb-2">Управление:</div>
-        <div className="text-xs text-gray-600 space-y-1">
-          <div>• Вращение: перетащите мышью</div>
-          <div>• Масштаб: колесо мыши</div>
-          <div>• Перемещение: Shift + перетащите</div>
+      {/* Информационная панель */}
+      <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div>Тип: {furnitureType}</div>
+          <div>Материал: {material}</div>
+          <div>Размеры: {width}×{height}×{depth} см</div>
+          {features && (
+            <div className="mt-1">
+              <div>Полки: {features.shelves}</div>
+              <div>Двери: {features.doors}</div>
+              <div>Ящики: {features.drawers}</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
