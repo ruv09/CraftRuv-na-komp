@@ -224,7 +224,7 @@ export default function Calculator() {
                         <SelectValue placeholder="Выберите материал" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="" disabled>Выберите материал</SelectItem>
+                        <SelectItem value="placeholder" disabled>Выберите материал</SelectItem>
                         <SelectItem value="wood" disabled>Натуральное дерево</SelectItem>
                         {Object.entries(materials)
                           .filter(([_, mat]) => mat.category === 'wood')

@@ -107,24 +107,56 @@ router.post('/suggest', [
 - Размеры комнаты для оптимальных габаритов
 - Функциональность для количества полок/ящиков`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'Ты — эксперт по проектированию корпусной мебели. Ты создаешь точные параметры для 3D-модели и даешь профессиональные советы. Всегда возвращай валидный JSON.' 
-        },
-        { role: 'user', content: aiPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000
-    });
-
-    // 3. Парсим ответ AI
+    // 3. Генерируем параметры (с OpenAI или fallback)
     let modelData = null;
     let advice = [];
     let dallePrompt = null;
-    let raw = completion.choices[0].message.content;
+    
+    if (openai) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'Ты — эксперт по проектированию корпусной мебели. Ты создаешь точные параметры для 3D-модели и даешь профессиональные советы. Всегда возвращай валидный JSON.' 
+            },
+            { role: 'user', content: aiPrompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        });
+
+        let raw = completion.choices[0].message.content;
+        
+        // Ищем JSON в ответе
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          
+          if (parsed.model) {
+            modelData = parsed.model;
+            advice = parsed.advice || [];
+            dallePrompt = parsed.dalle_prompt;
+            
+            // Валидация и нормализация параметров
+            modelData = validateAndNormalizeModel(modelData, budget);
+          }
+        }
+      } catch (e) {
+        console.error('OpenAI error:', e);
+      }
+    }
+    
+    // Fallback если OpenAI недоступен или произошла ошибка
+    if (!modelData) {
+      modelData = createFallbackModel(roomType, style, dimensions, budget);
+      advice = [
+        'Использованы базовые параметры (OpenAI недоступен)',
+        'Рекомендуется проверить размеры и материалы',
+        'Обратитесь к специалисту для уточнения деталей'
+      ];
+    }
     
     try {
       // Ищем JSON в ответе

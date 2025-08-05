@@ -243,15 +243,15 @@ export default function ProjectEditor() {
     >
       {/* 3D визуализация в центральной панели */}
       <div className="h-full flex flex-col">
-        <Furniture3DViewer
-          width={project.dimensions.width}
-          height={project.dimensions.height}
-          depth={project.dimensions.depth}
-          furnitureType={project.furnitureType}
-          material={project.material}
-          features={project.features}
-        />
-        
+              <Furniture3DViewer
+                width={project.dimensions.width}
+                height={project.dimensions.height}
+                depth={project.dimensions.depth}
+                furnitureType={project.furnitureType}
+                material={project.material}
+                features={project.features}
+              />
+
         {/* Дополнительные компоненты */}
         <div className="mt-4 space-y-4">
           <CNCExporter 
