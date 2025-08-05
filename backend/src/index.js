@@ -12,9 +12,10 @@ import { dirname, join } from 'path';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import furnitureRoutes from './routes/furniture.js';
-import aiRoutes from './routes/ai.js';
+// import aiRoutes from './routes/ai.js';
 import userRoutes from './routes/users.js';
 import calculatorRoutes from './routes/calculator.js';
+import adminRoutes from './routes/admin.js';
 
 // Middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -34,7 +35,7 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
   credentials: true
 }));
 
@@ -72,9 +73,10 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', authMiddleware, projectRoutes);
 app.use('/api/furniture', authMiddleware, furnitureRoutes);
-app.use('/api/ai', authMiddleware, aiRoutes);
+// app.use('/api/ai', authMiddleware, aiRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/calculator', calculatorRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -90,11 +92,16 @@ app.use(errorHandler);
 // Start server
 const startServer = async () => {
   try {
-    await connectDB();
+    // Temporarily skip database connection for testing
+    console.log('⚠️ Running without database connection for testing');
+    // await connectDB();
+    
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+      console.log('⚠️ Note: Running in test mode without database');
+      console.log('⚠️ Note: AI routes are temporarily disabled');
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

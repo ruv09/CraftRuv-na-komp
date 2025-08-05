@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+// import User from '../models/User.js';
+import { findUserById } from '../utils/tempStorage.js';
 
 export const authMiddleware = async (req, res, next) => {
   try {
@@ -12,7 +13,9 @@ export const authMiddleware = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findById(decoded.userId).select('-password');
+    
+    // Find user by ID (temporary)
+    const user = findUserById(decoded.userId);
     
     if (!user) {
       return res.status(401).json({ 
@@ -20,13 +23,9 @@ export const authMiddleware = async (req, res, next) => {
       });
     }
 
-    if (!user.isActive) {
-      return res.status(401).json({ 
-        error: 'Account is deactivated.' 
-      });
-    }
-
-    req.user = user;
+    // Remove password from user object
+    const { password, ...userWithoutPassword } = user;
+    req.user = userWithoutPassword;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -77,7 +76,7 @@ export const requireSubscription = (minPlan = 'free') => {
       'pro': 2
     };
 
-    const userPlanLevel = planHierarchy[req.user.subscription.plan] || 0;
+    const userPlanLevel = planHierarchy[req.user.subscription?.plan] || 0;
     const requiredPlanLevel = planHierarchy[minPlan] || 0;
 
     if (userPlanLevel < requiredPlanLevel) {
@@ -87,7 +86,7 @@ export const requireSubscription = (minPlan = 'free') => {
     }
 
     // Check if subscription is expired
-    if (req.user.subscription.expiresAt && new Date() > req.user.subscription.expiresAt) {
+    if (req.user.subscription?.expiresAt && new Date() > req.user.subscription.expiresAt) {
       return res.status(403).json({ 
         error: 'Subscription has expired. Please renew to continue.' 
       });

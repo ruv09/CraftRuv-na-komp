@@ -15,7 +15,8 @@ import {
   Palette,
   Ruler,
   Calculator,
-  Sparkles
+  Sparkles,
+  Shield
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -34,6 +35,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Исследовать', href: '/explore', icon: Compass },
     { name: 'Профиль', href: '/profile', icon: User },
     { name: 'Настройки', href: '/settings', icon: Settings },
+    ...(user?.role === 'admin' ? [{ name: 'Админ панель', href: '/admin', icon: Shield }] : []),
   ];
 
   const tools = [

@@ -1,7 +1,8 @@
 import express from 'express';
 import { body, validationResult, query } from 'express-validator';
-import Project from '../models/Project.js';
+// import Project from '../models/Project.js';
 import { requireSubscription } from '../middleware/auth.js';
+import { tempProjects } from '../utils/tempStorage.js';
 
 const router = express.Router();
 
@@ -26,28 +27,34 @@ router.get('/', [
     const { page = 1, limit = 10, type, status, search } = req.query;
     const skip = (page - 1) * limit;
 
-    const filter = { user: req.user._id };
-    if (type) filter.type = type;
-    if (status) filter.status = status;
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
+    // Filter projects for current user (temporary)
+    let userProjects = [];
+    for (const [id, project] of tempProjects.entries()) {
+      if (project.user === req.user._id) {
+        if (type && project.type !== type) continue;
+        if (status && project.status !== status) continue;
+        if (search) {
+          const searchLower = search.toLowerCase();
+          if (!project.name.toLowerCase().includes(searchLower) && 
+              !project.description.toLowerCase().includes(searchLower)) {
+            continue;
+          }
+        }
+        userProjects.push(project);
+      }
     }
 
-    const projects = await Project.find(filter)
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('user', 'name email');
+    // Sort by updatedAt (newest first)
+    userProjects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
-    const total = await Project.countDocuments(filter);
+    // Pagination
+    const total = userProjects.length;
+    const paginatedProjects = userProjects.slice(skip, skip + parseInt(limit));
 
     res.json({
       success: true,
       data: {
-        projects,
+        projects: paginatedProjects,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -85,19 +92,28 @@ router.post('/', [
       });
     }
 
+    const projectId = Date.now().toString();
     const projectData = {
+      _id: projectId,
       ...req.body,
-      user: req.user._id
+      user: req.user._id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: req.body.status || 'draft',
+      isPublic: false,
+      views: 0,
+      likes: [],
+      materials: req.body.materials || [],
+      settings: req.body.settings || {}
     };
 
-    const project = new Project(projectData);
-    await project.save();
+    tempProjects.set(projectId, projectData);
 
     res.status(201).json({
       success: true,
       message: 'Project created successfully',
       data: {
-        project
+        project: projectData
       }
     });
 
@@ -114,8 +130,7 @@ router.post('/', [
 // @access  Private
 router.get('/:id', async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id)
-      .populate('user', 'name email');
+    const project = tempProjects.get(req.params.id);
 
     if (!project) {
       return res.status(404).json({ 
@@ -124,16 +139,16 @@ router.get('/:id', async (req, res) => {
     }
 
     // Check if user owns the project or if it's public
-    if (project.user._id.toString() !== req.user._id.toString() && !project.isPublic) {
+    if (project.user !== req.user._id && !project.isPublic) {
       return res.status(403).json({ 
         error: 'Access denied' 
       });
     }
 
     // Increment views for public projects
-    if (project.isPublic && project.user._id.toString() !== req.user._id.toString()) {
+    if (project.isPublic && project.user !== req.user._id) {
       project.views += 1;
-      await project.save();
+      tempProjects.set(req.params.id, project);
     }
 
     res.json({
@@ -168,7 +183,7 @@ router.put('/:id', [
       });
     }
 
-    const project = await Project.findById(req.params.id);
+    const project = tempProjects.get(req.params.id);
 
     if (!project) {
       return res.status(404).json({ 
@@ -177,17 +192,20 @@ router.put('/:id', [
     }
 
     // Check ownership
-    if (project.user.toString() !== req.user._id.toString()) {
+    if (project.user !== req.user._id) {
       return res.status(403).json({ 
         error: 'Access denied' 
       });
     }
 
-    const updatedProject = await Project.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('user', 'name email');
+    // Update project
+    const updatedProject = {
+      ...project,
+      ...req.body,
+      updatedAt: new Date()
+    };
+
+    tempProjects.set(req.params.id, updatedProject);
 
     res.json({
       success: true,
@@ -210,7 +228,7 @@ router.put('/:id', [
 // @access  Private
 router.delete('/:id', async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = tempProjects.get(req.params.id);
 
     if (!project) {
       return res.status(404).json({ 
@@ -219,13 +237,13 @@ router.delete('/:id', async (req, res) => {
     }
 
     // Check ownership
-    if (project.user.toString() !== req.user._id.toString()) {
+    if (project.user !== req.user._id) {
       return res.status(403).json({ 
         error: 'Access denied' 
       });
     }
 
-    await Project.findByIdAndDelete(req.params.id);
+    tempProjects.delete(req.params.id);
 
     res.json({
       success: true,
@@ -245,7 +263,7 @@ router.delete('/:id', async (req, res) => {
 // @access  Private
 router.post('/:id/like', async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = tempProjects.get(req.params.id);
 
     if (!project) {
       return res.status(404).json({ 
@@ -269,7 +287,7 @@ router.post('/:id/like', async (req, res) => {
       project.likes.push(req.user._id);
     }
 
-    await project.save();
+    tempProjects.set(req.params.id, project);
 
     res.json({
       success: true,
@@ -308,27 +326,32 @@ router.get('/public/explore', [
     const { page = 1, limit = 12, type, sort = 'views' } = req.query;
     const skip = (page - 1) * limit;
 
-    const filter = { isPublic: true };
-    if (type) filter.type = type;
+    // Filter public projects (temporary)
+    let publicProjects = [];
+    for (const [id, project] of tempProjects.entries()) {
+      if (project.isPublic) {
+        if (type && project.type !== type) continue;
+        publicProjects.push(project);
+      }
+    }
 
+    // Sort projects
     const sortOptions = {
-      views: { views: -1 },
-      likes: { likeCount: -1 },
-      recent: { createdAt: -1 }
+      views: (a, b) => b.views - a.views,
+      likes: (a, b) => b.likes.length - a.likes.length,
+      recent: (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     };
 
-    const projects = await Project.find(filter)
-      .sort(sortOptions[sort] || sortOptions.views)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('user', 'name');
+    publicProjects.sort(sortOptions[sort] || sortOptions.views);
 
-    const total = await Project.countDocuments(filter);
+    // Pagination
+    const total = publicProjects.length;
+    const paginatedProjects = publicProjects.slice(skip, skip + parseInt(limit));
 
     res.json({
       success: true,
       data: {
-        projects,
+        projects: paginatedProjects,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),

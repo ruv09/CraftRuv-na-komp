@@ -13,7 +13,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import AdminPanel from './pages/AdminPanel';
 import ProjectEditor from './pages/ProjectEditor';
 import ProjectList from './pages/ProjectList';
 import Explore from './pages/Explore';
@@ -61,10 +64,19 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/calculator" element={<Calculator />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/ai-assistant" element={<AIAssistant />} />
+
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                } />
 
                 {/* Protected routes */}
                 <Route path="/dashboard" element={

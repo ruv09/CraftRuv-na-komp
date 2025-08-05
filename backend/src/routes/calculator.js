@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Материалы с ценами за кв.м
@@ -190,4 +190,4 @@ router.get('/furniture-types/:typeId', (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

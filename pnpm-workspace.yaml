@@ -1,0 +1,8 @@
+packages:
+  - "."
+  - "backend"
+
+ignoredBuiltDependencies:
+  - electron
+  - electron-winstaller
+  - esbuild

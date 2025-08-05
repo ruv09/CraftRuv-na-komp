@@ -11,6 +11,7 @@ import { Separator } from '../components/ui/separator';
 import Furniture3DViewer from '../components/Furniture3DViewer';
 import CNCExporter from '../components/CNCExporter';
 import ProjectStats from '../components/ProjectStats';
+import Workspace from '../components/Workspace';
 import { 
   Bot, 
   Settings, 
@@ -234,390 +235,33 @@ export default function ProjectEditor() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Редактор проектов</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Создание и редактирование проектов корпусной мебели с ИИ-ассистентом
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAI(!showAI)}>
-            <Bot className="h-4 w-4 mr-2" />
-            ИИ-ассистент
-          </Button>
-          <Button onClick={() => exportProject('json')}>
-            <Download className="h-4 w-4 mr-2" />
-            Экспорт
-          </Button>
-          <Button>
-            <Save className="h-4 w-4 mr-2" />
-            Сохранить
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Левая панель - Параметры */}
-        <div className="lg:col-span-1 space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="design">Дизайн</TabsTrigger>
-              <TabsTrigger value="materials">Материалы</TabsTrigger>
-              <TabsTrigger value="hardware">Фурнитура</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="design" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Eye className="h-5 w-5" />
-                    Основные параметры
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Название проекта</Label>
-                    <Input 
-                      value={project.name} 
-                      onChange={e => setProject(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Мой проект мебели"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Описание</Label>
-                    <Textarea 
-                      value={project.description} 
-                      onChange={e => setProject(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Описание проекта..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Тип мебели</Label>
-                    <Select value={project.furnitureType} onValueChange={value => setProject(prev => ({ ...prev, furnitureType: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(FURNITURE_TYPES).map(([key, type]) => (
-                          <SelectItem key={key} value={key}>{type.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <Label>Ширина (см)</Label>
-                      <Input 
-                        type="number" 
-                        value={project.dimensions.width} 
-                        onChange={e => setProject(prev => ({ 
-                          ...prev, 
-                          dimensions: { ...prev.dimensions, width: Number(e.target.value) }
-                        }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Высота (см)</Label>
-                      <Input 
-                        type="number" 
-                        value={project.dimensions.height} 
-                        onChange={e => setProject(prev => ({ 
-                          ...prev, 
-                          dimensions: { ...prev.dimensions, height: Number(e.target.value) }
-                        }))}
-                      />
-                    </div>
-                    <div>
-                      <Label>Глубина (см)</Label>
-                      <Input 
-                        type="number" 
-                        value={project.dimensions.depth} 
-                        onChange={e => setProject(prev => ({ 
-                          ...prev, 
-                          dimensions: { ...prev.dimensions, depth: Number(e.target.value) }
-                        }))}
-                      />
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <Label>Элементы мебели</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div>
-                        <Label className="text-sm">Полки</Label>
-                        <Input 
-                          type="number" 
-                          value={project.features.shelves} 
-                          onChange={e => setProject(prev => ({ 
-                            ...prev, 
-                            features: { ...prev.features, shelves: Number(e.target.value) }
-                          }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm">Двери</Label>
-                        <Input 
-                          type="number" 
-                          value={project.features.doors} 
-                          onChange={e => setProject(prev => ({ 
-                            ...prev, 
-                            features: { ...prev.features, doors: Number(e.target.value) }
-                          }))}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm">Ящики</Label>
-                        <Input 
-                          type="number" 
-                          value={project.features.drawers} 
-                          onChange={e => setProject(prev => ({ 
-                            ...prev, 
-                            features: { ...prev.features, drawers: Number(e.target.value) }
-                          }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="materials" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Материалы
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Основной материал</Label>
-                    <Select value={project.material} onValueChange={value => setProject(prev => ({ ...prev, material: value }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(MATERIALS).map(([key, material]) => (
-                          <SelectItem key={key} value={key}>
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-4 h-4 rounded border" 
-                                style={{ backgroundColor: material.color }}
-                              />
-                              {material.name} - {material.price}₽/м²
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                    <h4 className="font-semibold mb-2">Характеристики материала</h4>
-                    {(() => {
-                      const material = MATERIALS[project.material as keyof typeof MATERIALS];
-                      return (
-                        <div className="space-y-1 text-sm">
-                          <div>Плотность: {material.density} кг/м³</div>
-                          <div>Цена: {material.price}₽/м²</div>
-                          <div>Цвет: {material.name}</div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="hardware" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Фурнитура
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Петли</Label>
-                    <Select value={project.hardware.hinges} onValueChange={value => setProject(prev => ({ 
-                      ...prev, 
-                      hardware: { ...prev.hardware, hinges: value }
-                    }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HARDWARE.hinges.map(hinge => (
-                          <SelectItem key={hinge.id} value={hinge.id}>
-                            {hinge.name} - {hinge.price}₽
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Ручки</Label>
-                    <Select value={project.hardware.handles} onValueChange={value => setProject(prev => ({ 
-                      ...prev, 
-                      hardware: { ...prev.hardware, handles: value }
-                    }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HARDWARE.handles.map(handle => (
-                          <SelectItem key={handle.id} value={handle.id}>
-                            {handle.name} - {handle.price}₽
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Направляющие</Label>
-                    <Select value={project.hardware.slides} onValueChange={value => setProject(prev => ({ 
-                      ...prev, 
-                      hardware: { ...prev.hardware, slides: value }
-                    }))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {HARDWARE.slides.map(slide => (
-                          <SelectItem key={slide.id} value={slide.id}>
-                            {slide.name} - {slide.price}₽
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          {/* ИИ-ассистент */}
-          {showAI && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  ИИ-ассистент
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button 
-                  onClick={generateWithAI} 
-                  disabled={aiState === 'loading'}
-                  className="w-full"
-                >
-                  {aiState === 'loading' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ИИ думает...
-                    </>
-                  ) : (
-                    <>
-                      <Bot className="h-4 w-4 mr-2" />
-                      Оптимизировать с ИИ
-                    </>
-                  )}
-                </Button>
-
-                {aiState === 'success' && (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm">Параметры оптимизированы!</span>
-                  </div>
-                )}
-
-                {aiState === 'error' && (
-                  <div className="flex items-center gap-2 text-red-600">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="text-sm">Ошибка ИИ</span>
-                  </div>
-                )}
-
-                {project.aiGenerated && project.aiAdvice.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Советы ИИ:</Label>
-                    <div className="space-y-1">
-                      {project.aiAdvice.map((advice, index) => (
-                        <div key={index} className="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
-                          {advice}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Расчет стоимости */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Расчет стоимости
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {project.cost.toLocaleString()} ₽
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Включая материалы, фурнитуру и работу
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Центральная панель - 3D визуализация */}
-        <div className="lg:col-span-2">
-          <Card className="h-full mb-6">
-            <CardHeader>
-              <CardTitle>3D визуализация</CardTitle>
-              <CardDescription>
-                {FURNITURE_TYPES[project.furnitureType as keyof typeof FURNITURE_TYPES]?.name} - 
-                {MATERIALS[project.material as keyof typeof MATERIALS]?.name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-96">
-              <Furniture3DViewer
-                width={project.dimensions.width}
-                height={project.dimensions.height}
-                depth={project.dimensions.depth}
-                furnitureType={project.furnitureType}
-                material={project.material}
-                features={project.features}
-              />
-            </CardContent>
-          </Card>
-
-          {/* CNC Экспортер */}
+    <Workspace 
+      project={project}
+      onProjectChange={setProject}
+      onSave={() => console.log('Сохранение проекта')}
+      onExport={(format) => exportProject(format as 'json' | 'dxf' | 'cnc')}
+    >
+      {/* 3D визуализация в центральной панели */}
+      <div className="h-full flex flex-col">
+        <Furniture3DViewer
+          width={project.dimensions.width}
+          height={project.dimensions.height}
+          depth={project.dimensions.depth}
+          furnitureType={project.furnitureType}
+          material={project.material}
+          features={project.features}
+        />
+        
+        {/* Дополнительные компоненты */}
+        <div className="mt-4 space-y-4">
           <CNCExporter 
             project={project}
             onExport={(format, machine) => {
               console.log(`Экспорт в ${format} для станка ${machine}`);
-              // Здесь будет логика экспорта
               alert(`Экспорт в ${format} для станка ${machine} будет добавлен в следующей версии`);
             }}
           />
 
-          {/* Статистика проекта */}
           <ProjectStats 
             project={project}
             aiOptimization={project.aiGenerated ? {
@@ -629,6 +273,6 @@ export default function ProjectEditor() {
           />
         </div>
       </div>
-    </div>
+    </Workspace>
   );
 } 

@@ -1,8 +1,9 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import User from '../models/User.js';
+// import User from '../models/User.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { tempUsers, findUserByEmail, saveUser } from '../utils/tempStorage.js';
 
 const router = express.Router();
 
@@ -34,31 +35,45 @@ router.post('/register', [
 
     const { name, email, password } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // Check if user already exists (temporary)
+    if (findUserByEmail(email)) {
       return res.status(400).json({ 
         error: 'User with this email already exists' 
       });
     }
 
-    // Create new user
-    const user = new User({
+    // Create new user (temporary)
+    const userId = Date.now().toString();
+    const user = {
+      _id: userId,
       name,
       email,
-      password
-    });
+      password, // In real app, this would be hashed
+      role: 'user', // Default role
+      isActive: true,
+      createdAt: new Date(),
+      lastLogin: new Date(),
+      preferences: {
+        theme: 'light',
+        language: 'ru',
+        units: 'metric'
+      },
+      subscription: {
+        plan: 'free',
+        expiresAt: null
+      }
+    };
 
-    await user.save();
+    saveUser(user);
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(userId);
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
       data: {
-        user: user.toJSON(),
+        user: { ...user, password: undefined },
         token
       }
     });
@@ -89,17 +104,16 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user (temporary)
+    const user = findUserByEmail(email);
     if (!user) {
       return res.status(401).json({ 
         error: 'Invalid credentials' 
       });
     }
 
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
+    // Check password (temporary - no hashing)
+    if (user.password !== password) {
       return res.status(401).json({ 
         error: 'Invalid credentials' 
       });
@@ -107,7 +121,7 @@ router.post('/login', [
 
     // Update last login
     user.lastLogin = new Date();
-    await user.save();
+    saveUser(user);
 
     // Generate token
     const token = generateToken(user._id);
@@ -116,7 +130,7 @@ router.post('/login', [
       success: true,
       message: 'Login successful',
       data: {
-        user: user.toJSON(),
+        user: { ...user, password: undefined },
         token
       }
     });
@@ -167,27 +181,36 @@ router.put('/profile', authMiddleware, [
     }
 
     const { name, preferences } = req.body;
-    const updateData = {};
+    
+    // Find user by ID (temporary)
+    let user = null;
+    for (const [email, u] of tempUsers.entries()) {
+      if (u._id === req.user._id) {
+        user = u;
+        break;
+      }
+    }
 
-    if (name) updateData.name = name;
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update user data
+    if (name) user.name = name;
     if (preferences) {
-      updateData.preferences = {
-        ...req.user.preferences,
+      user.preferences = {
+        ...user.preferences,
         ...preferences
       };
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+    saveUser(user);
 
     res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
-        user: updatedUser
+        user: { ...user, password: undefined }
       }
     });
 
@@ -238,6 +261,181 @@ router.post('/logout', authMiddleware, async (req, res) => {
     console.error('Logout error:', error);
     res.status(500).json({ 
       error: 'Server error during logout' 
+    });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: errors.array() 
+      });
+    }
+
+    const { email } = req.body;
+
+    // Find user (temporary)
+    const user = findUserByEmail(email);
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent.'
+      });
+    }
+
+    // Generate reset token (temporary - in real app, this would be stored in DB)
+    const resetToken = jwt.sign(
+      { userId: user._id, type: 'password-reset' },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1h' }
+    );
+
+    // In a real application, you would:
+    // 1. Store the reset token in the database with expiration
+    // 2. Send an email with the reset link
+    // 3. Use a proper email service like SendGrid, AWS SES, etc.
+
+    console.log(`Password reset token for ${email}: ${resetToken}`);
+
+    res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent.'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ 
+      error: 'Server error while processing password reset request' 
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: errors.array() 
+      });
+    }
+
+    const { token, newPassword } = req.body;
+
+    // Verify reset token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    } catch (error) {
+      return res.status(400).json({ 
+        error: 'Invalid or expired reset token' 
+      });
+    }
+
+    if (decoded.type !== 'password-reset') {
+      return res.status(400).json({ 
+        error: 'Invalid token type' 
+      });
+    }
+
+    // Find user by ID (temporary)
+    let user = null;
+    for (const [email, u] of tempUsers.entries()) {
+      if (u._id === decoded.userId) {
+        user = u;
+        break;
+      }
+    }
+
+    if (!user) {
+      return res.status(400).json({ 
+        error: 'Invalid reset token' 
+      });
+    }
+
+    // Update password (temporary - no hashing)
+    user.password = newPassword;
+    saveUser(user);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ 
+      error: 'Server error while resetting password' 
+    });
+  }
+});
+
+// @route   PUT /api/auth/change-password
+// @desc    Change password (authenticated user)
+// @access  Private
+router.put('/change-password', authMiddleware, [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: errors.array() 
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    // Find user by ID (temporary)
+    let user = null;
+    for (const [email, u] of tempUsers.entries()) {
+      if (u._id === req.user._id) {
+        user = u;
+        break;
+      }
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password (temporary - no hashing)
+    if (user.password !== currentPassword) {
+      return res.status(400).json({ 
+        error: 'Current password is incorrect' 
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    saveUser(user);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ 
+      error: 'Server error while changing password' 
     });
   }
 });
