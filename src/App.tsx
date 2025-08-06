@@ -25,6 +25,7 @@ import Settings from './pages/Settings';
 import Calculator from './pages/Calculator';
 import Demo from './pages/Demo';
 import AIAssistant from './pages/AIAssistant';
+import FurnitureBuilder from './components/FurnitureBuilder';
 
 // Styles
 import './App.css';
@@ -70,6 +71,7 @@ function App() {
                 <Route path="/calculator" element={<Calculator />} />
                 <Route path="/demo" element={<Demo />} />
                 <Route path="/ai-assistant" element={<AIAssistant />} />
+                <Route path="/builder" element={<FurnitureBuilder />} />
 
                 {/* Admin routes */}
                 <Route path="/admin" element={

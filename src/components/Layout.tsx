@@ -39,7 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   ];
 
   const tools = [
-    { name: 'Конструктор', href: '/constructor', icon: Ruler },
+    { name: 'Конструктор', href: '/builder', icon: Ruler },
     { name: 'Калькулятор', href: '/calculator', icon: Calculator },
     { name: 'Палитра', href: '/palette', icon: Palette },
     { name: 'AI-ассистент', href: '/ai-assistant', icon: Sparkles },
