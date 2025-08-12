@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import Furniture3DViewer from '../components/Furniture3DViewer';
+import MaterialTextureSelector from '../components/MaterialTextureSelector';
 import CNCExporter from '../components/CNCExporter';
 import ProjectStats from '../components/ProjectStats';
 import Workspace from '../components/Workspace';
@@ -92,6 +93,7 @@ interface ProjectData {
   description: string;
   furnitureType: string;
   material: string;
+  textureUrl?: string;
   dimensions: {
     width: number;
     height: number;
@@ -121,6 +123,7 @@ export default function ProjectEditor() {
     description: '',
     furnitureType: 'cabinet',
     material: 'oak',
+    textureUrl: undefined,
     dimensions: { width: 100, height: 200, depth: 60 },
     features: { shelves: 3, doors: 2, drawers: 0 },
     hardware: { hinges: 'hidden', handles: 'simple', slides: 'ball' },
@@ -199,6 +202,7 @@ export default function ProjectEditor() {
           ...prev,
           dimensions: aiModel.dimensions || prev.dimensions,
           material: aiModel.material || prev.material,
+          textureUrl: aiModel.textureUrl || prev.textureUrl,
           furnitureType: aiModel.furnitureType || prev.furnitureType,
           aiGenerated: true,
           aiAdvice: data.data.advice || []
@@ -243,13 +247,29 @@ export default function ProjectEditor() {
     >
       {/* 3D визуализация в центральной панели */}
       <div className="h-full flex flex-col">
-              <Furniture3DViewer
-                width={project.dimensions.width}
-                height={project.dimensions.height}
-                depth={project.dimensions.depth}
+              <MaterialTextureSelector
+                initialMaterial={project.material}
                 furnitureType={project.furnitureType}
-                material={project.material}
+                dimensions={project.dimensions}
                 features={project.features}
+                onMaterialChange={(materialId) => {
+                  setProject(prev => ({
+                    ...prev,
+                    material: materialId
+                  }));
+                }}
+                onTextureChange={(textureUrl) => {
+                  setProject(prev => ({
+                    ...prev,
+                    textureUrl: textureUrl
+                  }));
+                }}
+                onDimensionsChange={(dimensions) => {
+                  setProject(prev => ({
+                    ...prev,
+                    dimensions
+                  }));
+                }}
               />
 
         {/* Дополнительные компоненты */}

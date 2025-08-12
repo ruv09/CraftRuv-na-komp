@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, Box, Cylinder } from '@react-three/drei';
+import React, { useRef, useState, useEffect } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import { OrbitControls, Text, Box, Cylinder, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { TextureLoader } from 'three';
+
 
 interface FurniturePieceProps {
   width: number;
@@ -9,6 +11,7 @@ interface FurniturePieceProps {
   depth: number;
   furnitureType: string;
   material: string;
+  textureUrl?: string;
   features?: {
     shelves: number;
     doors: number;
@@ -22,10 +25,37 @@ const FurniturePiece: React.FC<FurniturePieceProps> = ({
   depth, 
   furnitureType, 
   material,
+  textureUrl,
   features = { shelves: 3, doors: 2, drawers: 0 }
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
+  const [materialTexture, setMaterialTexture] = useState<THREE.Texture | null>(null);
+  const [textureLoaded, setTextureLoaded] = useState(false);
+  
+  // Загрузка текстуры, если URL предоставлен
+  useEffect(() => {
+    if (textureUrl) {
+      const loader = new TextureLoader();
+      loader.load(
+        textureUrl,
+        (texture) => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          texture.repeat.set(2, 2); // Масштаб текстуры
+          setMaterialTexture(texture);
+          setTextureLoaded(true);
+        },
+        undefined,
+        (error) => {
+          console.error('Ошибка загрузки текстуры:', error);
+          setTextureLoaded(false);
+        }
+      );
+    } else {
+      setMaterialTexture(null);
+      setTextureLoaded(false);
+    }
+  }, [textureUrl]);
 
   useFrame((state) => {
     if (meshRef.current) {
@@ -69,6 +99,11 @@ const FurniturePiece: React.FC<FurniturePieceProps> = ({
           metalness={0.1}
           opacity={hovered ? 0.8 : 1}
           transparent
+          map={materialTexture}
+          // Дополнительные карты для реалистичности
+          normalScale={new THREE.Vector2(0.5, 0.5)}
+          aoMapIntensity={1}
+          envMapIntensity={0.5}
         />
       </Box>
 
@@ -191,6 +226,7 @@ interface Furniture3DViewerProps {
   depth: number;
   furnitureType: string;
   material: string;
+  textureUrl?: string;
   features?: {
     shelves: number;
     doors: number;
@@ -205,6 +241,7 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
   depth, 
   furnitureType, 
   material,
+  textureUrl,
   features,
   onDimensionsChange 
 }) => {
@@ -226,6 +263,7 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
           depth={depth}
           furnitureType={furnitureType}
           material={material}
+          textureUrl={textureUrl}
           features={features}
         />
 
@@ -248,6 +286,15 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
           <div>Тип: {furnitureType}</div>
           <div>Материал: {material}</div>
           <div>Размеры: {width}×{height}×{depth} см</div>
+          {textureUrl && (
+            <div className="mt-1 flex items-center">
+              <span>Текстура:</span>
+              <div 
+                className="ml-2 w-6 h-6 rounded-sm border border-gray-300 overflow-hidden"
+                style={{ backgroundImage: `url(${textureUrl})`, backgroundSize: 'cover' }}
+              />
+            </div>
+          )}
           {features && (
             <div className="mt-1">
               <div>Полки: {features.shelves}</div>
@@ -261,4 +308,4 @@ const Furniture3DViewer: React.FC<Furniture3DViewerProps> = ({
   );
 };
 
-export default Furniture3DViewer; 
+export default Furniture3DViewer;
