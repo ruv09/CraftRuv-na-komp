@@ -1,5 +1,9 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
+import { app, BrowserWindow } from 'electron';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -10,7 +14,7 @@ function createWindow() {
       contextIsolation: false,
     },
   });
-  win.loadFile(path.join(__dirname, 'dist/index.html'));
+  win.loadFile(join(__dirname, 'dist/index.html'));
 }
 
 app.whenReady().then(createWindow);
@@ -25,4 +29,4 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
-}); 
+});
