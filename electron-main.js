@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { spawn } from 'node:child_process';
@@ -67,8 +67,35 @@ async function startBackend() {
   }
 }
 
+let splashWindow = null;
+
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 420,
+    height: 260,
+    frame: false,
+    resizable: false,
+    transparent: false,
+    alwaysOnTop: true,
+    show: true,
+  });
+  splashWindow.loadFile(join(__dirname, 'splash.html'));
+}
+
 app.whenReady().then(async () => {
+  createSplash();
+  if (!process.env.OPENAI_API_KEY) {
+    dialog.showMessageBox({
+      type: 'warning',
+      title: 'OpenAI key missing',
+      message: 'OPENAI_API_KEY is not set. Some AI features will be disabled.',
+    });
+  }
   await startBackend();
+  if (splashWindow) {
+    splashWindow.close();
+    splashWindow = null;
+  }
   createWindow();
 });
 
