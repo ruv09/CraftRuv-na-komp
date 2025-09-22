@@ -299,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MoodScreen())),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFE67E6B),
                   foregroundColor: Colors.white,
@@ -448,6 +448,75 @@ class ShareScreen extends StatelessWidget {
   }
 }
 
+// ============ ЭКРАН «НАСТРОЕНИЕ» ============
+class MoodScreen extends StatefulWidget {
+  const MoodScreen({super.key});
+
+  @override
+  State<MoodScreen> createState() => _MoodScreenState();
+}
+
+class _MoodScreenState extends State<MoodScreen> {
+  String? _mood; // good | ok | bad
+  String? _text;
+
+  void _pick(String mood) {
+    setState(() {
+      _mood = mood;
+      _text = switch (mood) {
+        'good' => 'Сохрани это ощущение — оно твоё.',
+        'ok' => 'Нормально — это тоже нормально. Сделай мягкий вдох.',
+        _ => 'Если тяжело — это не навсегда. Ты не один.',
+      };
+    });
+  }
+
+  Future<void> _save() async {
+    if (_text == null) return;
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList('favorites') ?? <String>[];
+    list.add(_text!);
+    await p.setStringList('favorites', list);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Сохранено в архив')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Как ты?'), backgroundColor: const Color(0xFFE67E6B)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(spacing: 8, children: [
+              ChoiceChip(label: const Text('😊 Хорошо'), selected: _mood == 'good', onSelected: (_) => _pick('good')),
+              ChoiceChip(label: const Text('😐 Нормально'), selected: _mood == 'ok', onSelected: (_) => _pick('ok')),
+              ChoiceChip(label: const Text('😞 Плохо'), selected: _mood == 'bad', onSelected: (_) => _pick('bad')),
+            ]),
+            const SizedBox(height: 16),
+            if (_text != null)
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: Center(child: Text(_text!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, fontStyle: FontStyle.italic))),
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (_text != null)
+              ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
+                child: const Text('Сохранить в архив'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Временные заглушки для экранов Архив и Настройки
 class ArchiveScreen extends StatelessWidget {
   const ArchiveScreen({super.key});
@@ -546,6 +615,7 @@ class _SettingsWithTimesState extends State<_SettingsWithTimes> {
   TimeOfDay _evening = const TimeOfDay(hour: 22, minute: 0);
   bool _morningOn = true;
   bool _eveningOn = true;
+  String _lang = 'ru';
 
   @override
   void initState() {
@@ -558,6 +628,7 @@ class _SettingsWithTimesState extends State<_SettingsWithTimes> {
     setState(() {
       _morningOn = p.getBool('push_morning') ?? true;
       _eveningOn = p.getBool('push_evening') ?? true;
+      _lang = p.getString('lang') ?? 'ru';
       final mh = p.getInt('morning_h') ?? 8;
       final mm = p.getInt('morning_m') ?? 0;
       final eh = p.getInt('evening_h') ?? 22;
@@ -627,6 +698,25 @@ class _SettingsWithTimesState extends State<_SettingsWithTimes> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          const Text('Язык интерфейса', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _lang,
+            items: const [
+              DropdownMenuItem(value: 'ru', child: Text('Русский')),
+              DropdownMenuItem(value: 'en', child: Text('English')),
+            ],
+            onChanged: (v) async {
+              if (v == null) return;
+              final p = await SharedPreferences.getInstance();
+              await p.setString('lang', v);
+              setState(() => _lang = v);
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => MyApp(isFirstRun: false)), (r) => false);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
           SwitchListTile(
             value: _morningOn,
             onChanged: (v) => setState(() => _morningOn = v),
