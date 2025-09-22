@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Warmly',
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFF5EE),
+        scaffoldBackgroundColor: const Color(0xFFFFF5EE),
         fontFamily: 'Nunito',
       ),
       home: isFirstRun ? const OnboardingScreen() : const HomeScreen(),
@@ -52,15 +52,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: PageView(
         controller: _controller,
         onPageChanged: (index) => setState(() => _currentPage = index),
-        children: const [
+        children: [
           OnboardingStep(
             title: "ТыКлассный. Просто будучи собой 🤍",
             subtitle: "Warmly — твоё ежедневное напоминание: ты достаточно хорош. Прямо сейчас.",
             buttonText: "Начнём",
+            onPressed: () => _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease),
           ),
-          TimeZoneStep(),
-          SleepTimeStep(),
-          AlarmStep(),
+          TimeZoneStep(onNext: () => _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease)),
+          SleepTimeStep(onNext: () => _controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease)),
+          const AlarmStep(),
         ],
       ),
     );
@@ -92,14 +93,7 @@ class OnboardingStep extends StatelessWidget {
             Text(subtitle, style: const TextStyle(fontSize: 18, height: 1.5), textAlign: TextAlign.center),
             const Spacer(),
             ElevatedButton(
-              onPressed: onPressed ?? () {
-                final controller = PageView.of(context);
-                if (controller.page! < 3) {
-                  controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
-                } else {
-                  _finishOnboarding(context);
-                }
-              },
+              onPressed: onPressed ?? () => _finishOnboarding(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE67E6B),
                 foregroundColor: Colors.white,
@@ -129,7 +123,6 @@ class OnboardingStep extends StatelessWidget {
       body: "Доброе утро 🌞 Ты уже сделал самое сложное — проснулся.",
       scheduledTime: tomorrow,
     );
-    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -139,7 +132,8 @@ class OnboardingStep extends StatelessWidget {
 }
 
 class TimeZoneStep extends StatelessWidget {
-  const TimeZoneStep({super.key});
+  final VoidCallback onNext;
+  const TimeZoneStep({super.key, required this.onNext});
 
   @override
   Widget build(BuildContext context) {
@@ -147,16 +141,14 @@ class TimeZoneStep extends StatelessWidget {
       title: "🌍 В каком ты часовом поясе?",
       subtitle: "Выбери автоматически — или укажи вручную",
       buttonText: "Дальше",
-      onPressed: () {
-        final controller = PageView.of(context);
-        controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
-      },
+      onPressed: onNext,
     );
   }
 }
 
 class SleepTimeStep extends StatelessWidget {
-  const SleepTimeStep({super.key});
+  final VoidCallback onNext;
+  const SleepTimeStep({super.key, required this.onNext});
 
   @override
   Widget build(BuildContext context) {
@@ -164,10 +156,7 @@ class SleepTimeStep extends StatelessWidget {
       title: "🌙 Во сколько ты обычно ложишься спать?",
       subtitle: "Мы будем желать тебе спокойной ночи за 10 минут до этого времени",
       buttonText: "Дальше",
-      onPressed: () {
-        final controller = PageView.of(context);
-        controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
-      },
+      onPressed: onNext,
     );
   }
 }
@@ -341,18 +330,16 @@ class SoundService {
   factory SoundService() => _instance;
   SoundService._internal();
 
-  final AudioPlayer _player = AudioPlayer();
+  // final AudioPlayer _player = AudioPlayer();
   bool _isPlaying = false;
 
   Future<void> play(String assetPath) async {
-    if (_isPlaying) return;
-    _isPlaying = true;
-    await _player.play(AssetSource(assetPath));
-    _isPlaying = false;
+    // В текущей конфигурации мы отказались от будильника и не проигрываем звуки
+    // Оставляем заглушку для совместимости
+    return;
   }
 
   Future<void> stop() async {
-    await _player.stop();
     _isPlaying = false;
   }
 }
@@ -403,6 +390,10 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
     );
+  }
+
+  static Future<void> cancel(int id) async {
+    await _notificationsPlugin.cancel(id);
   }
 }
 
