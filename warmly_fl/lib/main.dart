@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -200,8 +201,27 @@ class AlarmStep extends StatelessWidget {
 }
 
 // ============ ГЛАВНЫЙ ЭКРАН (обновлённый) ============
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final String _phrase = "Ты уже сделал самое сложное — проснулся. Остальное — детали.";
+
+  Future<void> _saveFavorite() async {
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList('favorites') ?? <String>[];
+    if (!list.contains(_phrase)) {
+      list.add(_phrase);
+      await p.setStringList('favorites', list);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Сохранено в архив')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +248,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                "Ты уже сделал самое сложное — проснулся. Остальное — детали.",
+                _phrase,
                 style: TextStyle(
                   fontSize: 20,
                   fontStyle: FontStyle.italic,
@@ -237,6 +257,29 @@ class HomeScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _saveFavorite,
+                    icon: const Icon(Icons.favorite_border),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE67E6B),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    label: const Text('В архив'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => Share.share(_phrase),
+                    icon: const Icon(Icons.share),
+                    label: const Text('Поделиться'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
@@ -390,9 +433,66 @@ class ArchiveScreen extends StatelessWidget {
   const ArchiveScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    return const _ArchiveContent();
+  }
+}
+
+class _ArchiveContent extends StatefulWidget {
+  const _ArchiveContent();
+
+  @override
+  State<_ArchiveContent> createState() => _ArchiveContentState();
+}
+
+class _ArchiveContentState extends State<_ArchiveContent> {
+  List<String> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() => _items = (p.getStringList('favorites') ?? <String>[]).reversed.toList());
+  }
+
+  Future<void> _remove(int index) async {
+    final p = await SharedPreferences.getInstance();
+    final list = p.getStringList('favorites') ?? <String>[];
+    // convert reversed index to real index
+    final realIndex = list.length - 1 - index;
+    list.removeAt(realIndex);
+    await p.setStringList('favorites', list);
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Архив'), backgroundColor: const Color(0xFFE67E6B)),
-      body: const Center(child: Text('Здесь будет архив фраз')),
+      body: _items.isEmpty
+          ? const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Здесь будут жить твои любимые фразы. Нажми ❤, чтобы сохранить.')))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _items.length,
+              itemBuilder: (context, i) {
+                final text = _items[i];
+                return Card(
+                  child: ListTile(
+                    title: Text(text),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(icon: const Icon(Icons.share), onPressed: () => Share.share(text)),
+                        IconButton(icon: const Icon(Icons.delete), onPressed: () => _remove(i)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
