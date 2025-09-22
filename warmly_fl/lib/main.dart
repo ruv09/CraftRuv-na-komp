@@ -7,9 +7,11 @@ import 'screens/mood_screen.dart';
 import 'screens/archive_screen.dart';
 import 'screens/send_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/notifications_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationsService.init();
   runApp(const WarmlyApp());
 }
 
@@ -33,6 +35,42 @@ class _WarmlyAppState extends State<WarmlyApp> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('seen_onboarding') ?? false;
+
+    // schedule notifications if enabled
+    final alarmEnabled = prefs.getBool('alarm_enabled') ?? false;
+    final alarmH = prefs.getInt('alarm_h') ?? 7;
+    final alarmM = prefs.getInt('alarm_m') ?? 30;
+    final pushMorning = prefs.getBool('push_morning') ?? true;
+    final pushEvening = prefs.getBool('push_evening') ?? true;
+    final sleepH = prefs.getInt('sleep_h') ?? 23;
+    final sleepM = prefs.getInt('sleep_m') ?? 0;
+
+    if (pushMorning) {
+      await NotificationsService.scheduleDaily(
+        id: 100,
+        hour: alarmEnabled ? alarmH : 9,
+        minute: alarmEnabled ? alarmM : 0,
+        title: 'Доброе утро',
+        body: 'Ты уже сделал самое сложное — проснулся. Этого достаточно.',
+      );
+    } else {
+      await NotificationsService.cancel(100);
+    }
+
+    if (pushEvening) {
+      final evHour = (sleepH * 60 + sleepM - 10) ~/ 60 % 24;
+      final evMin = (sleepH * 60 + sleepM - 10) % 60;
+      await NotificationsService.scheduleDaily(
+        id: 200,
+        hour: evHour,
+        minute: evMin,
+        title: 'Спокойной ночи',
+        body: 'Сегодня ты сделал достаточно. Отдых — тоже достижение.',
+      );
+    } else {
+      await NotificationsService.cancel(200);
+    }
+
     setState(() {
       _seenOnboarding = seen;
       _loading = false;
