@@ -410,14 +410,138 @@ class _SettingsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _SettingsWithTimes();
+  }
+}
+
+class _SettingsWithTimes extends StatefulWidget {
+  const _SettingsWithTimes();
+
+  @override
+  State<_SettingsWithTimes> createState() => _SettingsWithTimesState();
+}
+
+class _SettingsWithTimesState extends State<_SettingsWithTimes> {
+  TimeOfDay _morning = const TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _evening = const TimeOfDay(hour: 22, minute: 0);
+  bool _morningOn = true;
+  bool _eveningOn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() {
+      _morningOn = p.getBool('push_morning') ?? true;
+      _eveningOn = p.getBool('push_evening') ?? true;
+      final mh = p.getInt('morning_h') ?? 8;
+      final mm = p.getInt('morning_m') ?? 0;
+      final eh = p.getInt('evening_h') ?? 22;
+      final em = p.getInt('evening_m') ?? 0;
+      _morning = TimeOfDay(hour: mh, minute: mm);
+      _evening = TimeOfDay(hour: eh, minute: em);
+    });
+  }
+
+  Future<void> _saveAndSchedule() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool('push_morning', _morningOn);
+    await p.setBool('push_evening', _eveningOn);
+    await p.setInt('morning_h', _morning.hour);
+    await p.setInt('morning_m', _morning.minute);
+    await p.setInt('evening_h', _evening.hour);
+    await p.setInt('evening_m', _evening.minute);
+
+    // рескейджулинг
+    if (_morningOn) {
+      final now = DateTime.now();
+      var next = DateTime(now.year, now.month, now.day, _morning.hour, _morning.minute);
+      if (next.isBefore(now)) next = next.add(const Duration(days: 1));
+      await NotificationService.scheduleNotification(
+        id: 100,
+        title: 'Warmly',
+        body: 'Доброе утро 🌞 Ты достаточно хорош — уже сейчас.',
+        scheduledTime: next,
+      );
+    } else {
+      await NotificationService.cancel(100);
+    }
+
+    if (_eveningOn) {
+      final now = DateTime.now();
+      var next = DateTime(now.year, now.month, now.day, _evening.hour, _evening.minute);
+      if (next.isBefore(now)) next = next.add(const Duration(days: 1));
+      await NotificationService.scheduleNotification(
+        id: 200,
+        title: 'Warmly',
+        body: 'Спокойной ночи 🌙 Ты сделал достаточно. Отдых важен.',
+        scheduledTime: next,
+      );
+    } else {
+      await NotificationService.cancel(200);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Уведомления обновлены')));
+    }
+  }
+
+  Future<void> _pickMorning() async {
+    final t = await showTimePicker(context: context, initialTime: _morning);
+    if (t != null) setState(() => _morning = t);
+  }
+
+  Future<void> _pickEvening() async {
+    final t = await showTimePicker(context: context, initialTime: _evening);
+    if (t != null) setState(() => _evening = t);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки'), backgroundColor: const Color(0xFFE67E6B)),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareScreen())),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
-          child: const Text('Отправить другу'),
-        ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          SwitchListTile(
+            value: _morningOn,
+            onChanged: (v) => setState(() => _morningOn = v),
+            title: const Text('Утреннее уведомление'),
+            subtitle: Text('Время: ${_morning.format(context)}'),
+          ),
+          ListTile(
+            title: const Text('Выбрать время утра'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _pickMorning,
+          ),
+          const Divider(),
+          SwitchListTile(
+            value: _eveningOn,
+            onChanged: (v) => setState(() => _eveningOn = v),
+            title: const Text('Вечернее уведомление'),
+            subtitle: Text('Время: ${_evening.format(context)}'),
+          ),
+          ListTile(
+            title: const Text('Выбрать время вечера'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _pickEvening,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _saveAndSchedule,
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
+            child: const Text('Сохранить и обновить уведомления'),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareScreen())),
+            child: const Text('Отправить другу'),
+          ),
+        ],
       ),
     );
   }
