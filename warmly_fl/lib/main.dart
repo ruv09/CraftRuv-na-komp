@@ -399,15 +399,105 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    return const _SettingsContent();
+  }
+}
+
+class _SettingsContent extends StatefulWidget {
+  const _SettingsContent();
+
+  @override
+  State<_SettingsContent> createState() => _SettingsContentState();
+}
+
+class _SettingsContentState extends State<_SettingsContent> {
+  String _alarmSound = AlarmSoundCatalog.defaultSound;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _alarmSound = prefs.getString('alarm_sound') ?? AlarmSoundCatalog.defaultSound;
+    });
+  }
+
+  Future<void> _save(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('alarm_sound', value);
+    setState(() => _alarmSound = value);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Звук будильника сохранён')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки'), backgroundColor: const Color(0xFFE67E6B)),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareScreen())),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
-          child: const Text('Отправить другу'),
-        ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Text('Звук будильника', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _alarmSound,
+            items: AlarmSoundCatalog.sounds
+                .map((s) => DropdownMenuItem(value: s.path, child: Text(s.title)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) _save(v);
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () => SoundService().play(_alarmSound),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
+                child: const Text('Прослушать'),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareScreen())),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black12, foregroundColor: Colors.black87),
+                child: const Text('Отправить другу'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
+}
+
+class AlarmSoundCatalog {
+  static const defaultSound = 'assets/sounds/alarm/dawn_chime.mp3';
+  static final sounds = <_AlarmSound>[
+    _AlarmSound('Рассвет (колокольчики)', 'assets/sounds/alarm/dawn_chime.mp3'),
+    _AlarmSound('Мягкая гитара', 'assets/sounds/alarm/soft_guitar.mp3'),
+    _AlarmSound('Тихое пиано', 'assets/sounds/alarm/gentle_piano.mp3'),
+    _AlarmSound('Шум моря', 'assets/sounds/alarm/ocean_waves.mp3'),
+    _AlarmSound('Лёгкий дождь', 'assets/sounds/alarm/light_rain.mp3'),
+    _AlarmSound('Пение птиц', 'assets/sounds/alarm/morning_birds.mp3'),
+    _AlarmSound('Калинба', 'assets/sounds/alarm/kalimba_soft.mp3'),
+    _AlarmSound('Тибетские чаши', 'assets/sounds/alarm/tibetan_bowls.mp3'),
+    _AlarmSound('Ветерок', 'assets/sounds/alarm/soft_wind.mp3'),
+    _AlarmSound('Аmbient пад', 'assets/sounds/alarm/ambient_pad.mp3'),
+    _AlarmSound('Лёгкие колокольчики', 'assets/sounds/alarm/light_bells.mp3'),
+    _AlarmSound('Тёплый синт', 'assets/sounds/alarm/warm_synth.mp3'),
+    _AlarmSound('Глюкоспил', 'assets/sounds/alarm/glockenspiel.mp3'),
+    _AlarmSound('Тихий ручей', 'assets/sounds/alarm/soft_stream.mp3'),
+    _AlarmSound('Костёр', 'assets/sounds/alarm/campfire_soft.mp3'),
+  ];
+}
+
+class _AlarmSound {
+  final String title;
+  final String path;
+  const _AlarmSound(this.title, this.path);
 }
