@@ -1,0 +1,16 @@
+{
+  "app_title": "Warmly",
+  "good_morning": "Good morning 🌞",
+  "evening_rest": "Good night 🌙 You did enough. Rest matters.",
+  "add_to_archive": "Add to archive",
+  "share": "Share",
+  "archive_title": "My warm words",
+  "archive_empty": "Your favorite phrases will live here. Tap ❤ to save.",
+  "settings": "Settings",
+  "notif_morning": "Morning notification",
+  "notif_evening": "Evening notification",
+  "choose_morning": "Pick morning time",
+  "choose_evening": "Pick evening time",
+  "save_update": "Save and update notifications",
+  "send_to_friend": "Send to friend"
+}

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -210,6 +212,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final String _phrase = "Ты уже сделал самое сложное — проснулся. Остальное — детали.";
+  late Future<Map<String, String>> _i18n;
+
+  @override
+  void initState() {
+    super.initState();
+    _i18n = _loadI18n();
+  }
+
+  Future<Map<String, String>> _loadI18n() async {
+    final p = await SharedPreferences.getInstance();
+    final lang = p.getString('lang') ?? 'ru';
+    final content = await rootBundle.loadString('assets/i18n/strings_${lang}.json');
+    final map = json.decode(content) as Map<String, dynamic>;
+    return map.map((k, v) => MapEntry(k, v.toString()));
+  }
 
   Future<void> _saveFavorite() async {
     final p = await SharedPreferences.getInstance();
@@ -225,9 +242,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FutureBuilder<Map<String, String>>(
+      future: _i18n,
+      builder: (context, snap) {
+        final t = (String k) => (snap.data ?? const {})[k] ?? k;
+        return Scaffold(
       appBar: AppBar(
-        title: const Text("Warmly", style: TextStyle(color: Colors.white)),
+        title: Text(t('app_title'), style: const TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFE67E6B),
         actions: [
           IconButton(
@@ -242,10 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                "Доброе утро 🌞",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+              Text(t('good_morning'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               Text(
                 _phrase,
@@ -269,13 +287,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    label: const Text('В архив'),
+                    label: Text(t('add_to_archive')),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: () => Share.share(_phrase),
                     icon: const Icon(Icons.share),
-                    label: const Text('Поделиться'),
+                    label: Text(t('share')),
                   ),
                 ],
               ),
@@ -311,6 +329,8 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         selectedItemColor: const Color(0xFFE67E6B),
       ),
+        );
+      },
     );
   }
 }
