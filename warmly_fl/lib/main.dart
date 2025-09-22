@@ -259,7 +259,14 @@ class HomeScreen extends StatelessWidget {
           BottomNavigationBarItem(icon: Icon(Icons.book), label: "Архив"),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: "Настройки"),
         ],
-        onTap: (index) {},
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ArchiveScreen()));
+          }
+          if (index == 2) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()));
+          }
+        },
         selectedItemColor: const Color(0xFFE67E6B),
       ),
     );
@@ -330,6 +337,77 @@ class NotificationService {
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: null,
+    );
+  }
+}
+
+// ============ ЭКРАН «ПОДЕЛИТЬСЯ ТЕПЛОМ» ============
+class ShareScreen extends StatelessWidget {
+  const ShareScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Поделись теплом"),
+        backgroundColor: const Color(0xFFE67E6B),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const Text("Выбери фразу для друга:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            ...[
+              "Ты — чудо. Просто так.",
+              "Ты не один. Ты важен. Ты любим.",
+              "Просто так — ты сегодня классный. Точка.",
+            ].map((phrase) => Card(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  child: ListTile(
+                    title: Text(phrase),
+                    trailing: const Icon(Icons.share),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Скопировано! Отправь другу ❤️")),
+                      );
+                    },
+                  ),
+                )),
+            const Spacer(),
+            const Text("Анонимно. Без регистрации. Просто добро.", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Временные заглушки для экранов Архив и Настройки
+class ArchiveScreen extends StatelessWidget {
+  const ArchiveScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Архив'), backgroundColor: const Color(0xFFE67E6B)),
+      body: const Center(child: Text('Здесь будет архив фраз')),
+    );
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Настройки'), backgroundColor: const Color(0xFFE67E6B)),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareScreen())),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE67E6B), foregroundColor: Colors.white),
+          child: const Text('Отправить другу'),
+        ),
+      ),
     );
   }
 }
