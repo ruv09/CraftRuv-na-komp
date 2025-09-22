@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
+  await NotificationService.init();
   final prefs = await SharedPreferences.getInstance();
   final isFirstRun = prefs.getBool('isFirstRun') ?? true;
 
@@ -110,6 +115,17 @@ class OnboardingStep extends StatelessWidget {
   Future<void> _finishOnboarding(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isFirstRun', false);
+    await prefs.setString('alarm_time', '07:30');
+    await prefs.setBool('alarm_enabled', true);
+
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1, 7, 30);
+    await NotificationService.scheduleNotification(
+      id: 1,
+      title: "Warmly",
+      body: "Доброе утро 🌞 Ты уже сделал самое сложное — проснулся.",
+      scheduledTime: tomorrow,
+    );
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
@@ -164,12 +180,20 @@ class AlarmStep extends StatelessWidget {
       buttonText: "Готово — показать Warmly!",
       onPressed: () {
         final prefs = SharedPreferences.getInstance();
-        prefs.then((p) => p.setBool('isFirstRun', false));
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-          (route) => false,
-        );
+        prefs.then((p) async {
+          await p.setBool('isFirstRun', false);
+          await p.setString('alarm_time', '07:30');
+          await p.setBool('alarm_enabled', true);
+          final now = DateTime.now();
+          final tomorrow = DateTime(now.year, now.month, now.day + 1, 7, 30);
+          await NotificationService.scheduleNotification(
+            id: 1,
+            title: "Warmly",
+            body: "Доброе утро 🌞 Ты уже сделал самое сложное — проснулся.",
+            scheduledTime: tomorrow,
+          );
+        });
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const HomeScreen()), (route) => false);
       },
     );
   }
@@ -237,6 +261,45 @@ class HomeScreen extends StatelessWidget {
         onTap: (index) {},
         selectedItemColor: const Color(0xFFE67E6B),
       ),
+    );
+  }
+}
+
+// ============ УВЕДОМЛЕНИЯ ============
+class NotificationService {
+  static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  static Future<void> init() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const darwinSettings = DarwinInitializationSettings();
+    const settings = InitializationSettings(android: androidSettings, iOS: darwinSettings);
+    await _notificationsPlugin.initialize(settings);
+  }
+
+  static Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'warmly_channel',
+      'Warmly Notifications',
+      channelDescription: 'Тёплые слова для тебя',
+      priority: Priority.high,
+      importance: Importance.high,
+    );
+    const darwinDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(android: androidDetails, iOS: darwinDetails);
+
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: null,
     );
   }
 }
