@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:audioplayers/audioplayers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -265,15 +266,44 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+// ============ ЗВУКИ ============
+class SoundService {
+  static final SoundService _instance = SoundService._internal();
+  factory SoundService() => _instance;
+  SoundService._internal();
+
+  final AudioPlayer _player = AudioPlayer();
+  bool _isPlaying = false;
+
+  Future<void> play(String assetPath) async {
+    if (_isPlaying) return;
+    _isPlaying = true;
+    await _player.play(AssetSource(assetPath));
+    _isPlaying = false;
+  }
+
+  Future<void> stop() async {
+    await _player.stop();
+    _isPlaying = false;
+  }
+}
+
 // ============ УВЕДОМЛЕНИЯ ============
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwinSettings = DarwinInitializationSettings();
+    const darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
     const settings = InitializationSettings(android: androidSettings, iOS: darwinSettings);
     await _notificationsPlugin.initialize(settings);
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   static Future<void> scheduleNotification({
