@@ -307,7 +307,16 @@ class NotificationService {
       requestSoundPermission: true,
     );
     const settings = InitializationSettings(android: androidSettings, iOS: darwinSettings);
-    await _notificationsPlugin.initialize(settings);
+    await _notificationsPlugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (response.payload == 'alarm') {
+          final prefs = await SharedPreferences.getInstance();
+          final path = prefs.getString('alarm_sound') ?? AlarmSoundCatalog.defaultSound;
+          await SoundService().play(path);
+        }
+      },
+    );
     await _notificationsPlugin
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
@@ -337,6 +346,7 @@ class NotificationService {
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: null,
+      payload: 'alarm',
     );
   }
 }
