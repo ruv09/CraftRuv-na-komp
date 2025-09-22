@@ -327,16 +327,23 @@ class NotificationService {
     required String title,
     required String body,
     required DateTime scheduledTime,
+    String? soundPath,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    final baseName = _extractBaseName(soundPath);
+    final androidDetails = AndroidNotificationDetails(
       'warmly_channel',
       'Warmly Notifications',
       channelDescription: 'Тёплые слова для тебя',
       priority: Priority.high,
       importance: Importance.high,
+      sound: baseName != null ? RawResourceAndroidNotificationSound(baseName) : null,
+      playSound: true,
     );
-    const darwinDetails = DarwinNotificationDetails();
-    const details = NotificationDetails(android: androidDetails, iOS: darwinDetails);
+    final darwinDetails = DarwinNotificationDetails(
+      sound: baseName != null ? DarwinNotificationSound("$baseName.aiff") : null,
+      presentSound: true,
+    );
+    final details = NotificationDetails(android: androidDetails, iOS: darwinDetails);
 
     await _notificationsPlugin.zonedSchedule(
       id,
@@ -349,6 +356,15 @@ class NotificationService {
       payload: 'alarm',
     );
   }
+}
+
+String? _extractBaseName(String? assetPath) {
+  if (assetPath == null) return null;
+  final segments = assetPath.split('/')..removeWhere((e) => e.isEmpty);
+  if (segments.isEmpty) return null;
+  final file = segments.last;
+  final dot = file.lastIndexOf('.');
+  return dot > 0 ? file.substring(0, dot) : file;
 }
 
 // ============ ЭКРАН «ПОДЕЛИТЬСЯ ТЕПЛОМ» ============
