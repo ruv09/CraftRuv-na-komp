@@ -401,7 +401,7 @@ class NotificationService {
       tz.TZDateTime.from(scheduledTime, tz.local),
       details,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: null,
+      matchDateTimeComponents: DateTimeComponents.time,
     );
   }
 }
